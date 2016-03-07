@@ -67,7 +67,7 @@ func handleGoogleCallback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	calendarEvents, err := calendarService.Events.List("primary").Do()
+	calendarEvents, err := calendarService.Events.List("primary").TimeMin(time.Now().Format(time.RFC3339)).MaxResults(5).Do()
 	if err != nil {
 		fmt.Fprintln(w, err)
 		return
