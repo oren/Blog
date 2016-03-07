@@ -78,7 +78,11 @@ func handleGoogleCallback(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	newEvent := calendar.Event{Summary: "Testevent", Start: &calendar.EventDateTime{DateTime: time.Date(2016, 3, 11, 12, 24, 0, 0, time.UTC).Format(time.RFC3339)}, End: &calendar.EventDateTime{DateTime: time.Date(2016, 3, 11, 13, 24, 0, 0, time.UTC).Format(time.RFC3339)}}
+	newEvent := calendar.Event{
+		Summary: "Testevent",
+		Start: &calendar.EventDateTime{DateTime: time.Date(2016, 3, 11, 12, 24, 0, 0, time.UTC).Format(time.RFC3339)},
+		End: &calendar.EventDateTime{DateTime: time.Date(2016, 3, 11, 13, 24, 0, 0, time.UTC).Format(time.RFC3339)},
+	}
 	createdEvent, err := calendarService.Events.Insert("primary", &newEvent).Do()
 	if err != nil {
 		fmt.Fprintln(w, err)

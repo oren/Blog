@@ -102,7 +102,7 @@ client := oauth2.NewClient(context.Background(), oauth2.StaticTokenSource(token)
 
 We need an ***OAuth2 client*** to use the Google API, so we create one. It takes a context, for lack of which we just use the background context. It also needs a token source. As we only want to make one request and know that this token will suffice we create a static token source which will always generate the same token which we've passed to it.
 
-## Creating the calendar app.
+## Creating the Calendar app.
 
 ### Preperation
 First, as described in [my previous article][1], you should enable the Google Calendar API in the ***Google Cloud Console*** for you app.
@@ -176,8 +176,78 @@ if err != nil {
 }
 ```
 
+How can we now do something with the results? Simple! :
 
+```go
+calendarEvents, err := calendarService.Events.List("primary").TimeMin(time.Now().Format(time.RFC3339)).MaxResults(5).Do()
+if err != nil {
+  fmt.Fprintln(w, err)
+  return
+}
 
+if len(calendarEvents.Items) > 0 {
+	for _, i := range calendarEvents.Items {
+		fmt.Fprintln(w, i.Summary, " ", i.Start.DateTime)
+	}
+}
+```
+
+We access a list of events using the ***Items*** field in the *calendarEvents* variable, if there is at least one element, then for each element we write the *summary* and *start time* to the *response writer* using a *for range* loop.
+
+#### Creating an event
+
+Ok, we already know how to list events, now let's create an event!
+First, we need an event object:
+
+```go
+if len(calendarEvents.Items) > 0 {
+	for _, i := range calendarEvents.Items {
+		fmt.Fprintln(w, i.Summary, " ", i.Start.DateTime)
+	}
+}
+newEvent := calendar.Event{
+	Summary: "Testevent",
+	Start: &calendar.EventDateTime{DateTime: time.Date(2016, 3, 11, 12, 24, 0, 0, time.UTC).Format(time.RFC3339)},
+	End: &calendar.EventDateTime{DateTime: time.Date(2016, 3, 11, 13, 24, 0, 0, time.UTC).Format(time.RFC3339)},
+}
+```
+
+We create an Event struct and pass in the ***summary*** - title of the event.
+We also pass the start and finish ***DateTime***. We create a *date* using the stdlib *time* package, and then convert it to a string in the RFC3339 format. There are tons of other optional fields you can specify if you want to.
+
+Next we need to create an ***insert*** request object:
+```go
+newEvent := calendar.Event{
+	Summary: "Testevent",
+	Start: &calendar.EventDateTime{DateTime: time.Date(2016, 3, 11, 12, 24, 0, 0, time.UTC).Format(time.RFC3339)},
+	End: &calendar.EventDateTime{DateTime: time.Date(2016, 3, 11, 13, 24, 0, 0, time.UTC).Format(time.RFC3339)},
+}
+calendarService.Events.Insert("primary", &newEvent)
+```
+
+The ***Insert*** request takes two arguments, the calendar name and an event object.
+
+As usual we neeed to ***Do()*** the request! and saving the resulting created event can also come handy in the future:
+
+```go
+createdEvent, err := calendarService.Events.Insert("primary", &newEvent).Do()
+if err != nil {
+	fmt.Fprintln(w, err)
+	return
+}
+```
+
+In the end let's just print some kind of confirmation to the user:
+
+```go
+fmt.Fprintln(w, "New event in your calendar: \"", createdEvent.Summary, "\" starting at ", createdEvent.Start.DateTime)
+```
+
+### Hint
+
+You can define the event ID yourself before creating it, but you can also let the Google Calendar service generate an ID for us as we did.
+
+## Creating the Drive app
 
 
 
