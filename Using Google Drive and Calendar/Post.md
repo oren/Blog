@@ -119,6 +119,8 @@ googleOauthConfig = &oauth2.Config{
 	}
 ```
 
+Remember to import google.golang.org/api/calendar/v3
+
 ### The main code
 
 We'll add everything we write right after creating our OAuth2 client.
@@ -245,10 +247,162 @@ fmt.Fprintln(w, "New event in your calendar: \"", createdEvent.Summary, "\" star
 
 ### Hint
 
-You can define the event ID yourself before creating it, but you can also let the Google Calendar service generate an ID for us as we did.
+You can define the event ***ID*** yourself before creating it, but you can also let the *Google Calendar* service generate an ***ID*** for us as we did.
 
 ## Creating the Drive app
 
+### Preperation
+
+First, enable the Google Drive API in the ***Google Cloud Console***
+
+Again we will need to ask the user for permission. So we have to use the https://www.googleapis.com/auth/drive and https://www.googleapis.com/auth/drive.file scopes:
+
+```go
+googleOauthConfig = &oauth2.Config{
+		RedirectURL:	"http://localhost:3000/GoogleCallback",
+		ClientID:     os.Getenv("googlekey"), // from https://console.developers.google.com/project/<your-project-id>/apiui/credential
+		ClientSecret: os.Getenv("googlesecret"), // from https://console.developers.google.com/project/<your-project-id>/apiui/credential
+		Scopes:       []string{"https://www.googleapis.com/auth/drive", "https://www.googleapis.com/auth/drive.file"},
+		Endpoint:     google.Endpoint,
+	}
+```
+
+Remember to import google.golang.org/api/drive/v3"
+
+### The main code
+
+Again we need to start from our basic OAuth2 app structure with an OAuth2 client, and create an app service. Here, this will be the ***Drive service***:
+
+```go
+client := oauth2.NewClient(context.Background(), oauth2.StaticTokenSource(token))
+
+driveService, err := drive.New(client)
+if err != nil {
+	fmt.Fprintln(w, err)
+	return
+}
+```
+
+#### Listing files
+
+Ok, to begin with let's learn how to list files from the ***Google Drive***. There is an important concept you should understand before we start. Whenever we request a list of files from *Google Drive*, those can literally be thousands of files. That's why we get one page of files, which includes files metadata, not the content, and a ***NextPageToken***, which we can use to get the next page.
+
+As before, we create a list request.
+
+```go
+driveService, err := drive.New(client)
+if err != nil {
+	fmt.Fprintln(w, err)
+	return
+}
+
+driveService.Files.List()
+```
+
+But we can also set an option. The ordering for example:
+
+```go
+driveService.Files.List().OrderBy("name")
+```
+
+Ok, now let's ***Do()*** it and save the results:
+
+```go
+myFilesList, err := driveService.Files.List().OrderBy("name").Do()
+if err != nil {
+	fmt.Fprintf(w, "Couldn't retrieve files ", err)
+}
+```
+
+As I wrote before, this is one page of files, now let's go over it:
+
+```go
+if len(myFilesList.Files) > 0 {
+	for _, i := range myFilesList.Files {
+		fmt.Fprintln(w, i.Name, " ", i.Id)
+	}
+} else {
+	fmt.Fprintln(w, "No files found.")
+}
+```
+
+We check if there are any files, and if there are, we range over them printing the *name* and *Id* of each one, else we print that there are none.
+
+Now, let's get more pages, it's the ***myFilesList.NextPageToken*** holding the token for the next page. If it is an empty string, then this was the last page. While it is present we load new pages into our *myFilesList* variable.
+
+```go
+for myFilesList.NextPageToken != "" {
+	myFilesList, err = driveService.Files.List().OrderBy("name").PageToken(myFilesList.NextPageToken).Do()
+	if err != nil {
+		fmt.Fprintf(w, "Couldn't retrieve files ", err)
+		break
+	}
+	fmt.Fprintln(w, "Next Page: !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+	if len(myFilesList.Files) > 0 {
+		for _, i := range myFilesList.Files {
+			fmt.Fprintln(w, i.Name, " ", i.Id)
+		}
+	} else {
+		fmt.Fprintln(w, "No files found.")
+	}
+}
+```
+
+To retrieve the next page we add the ***PageToken*** option to our file listing request
+
+```go
+	myFilesList, err = driveService.Files.List().OrderBy("name").PageToken(myFilesList.NextPageToken).Do()
+```
+
+Whenever we start printing the new page, we notify a user that a new page just started. Later we check if we have any files, and if we do, then we range over them as before, printing the *names* and *Id's*
+
+#### Creating a file
+
+We already know how to list files in our *Google Drive*. Now let's learn how to create a file and add some content to it!
+
+First, we need to create the file metadata:
+
+```go
+for myFilesList.NextPageToken != "" {
+	myFilesList, err = driveService.Files.List().OrderBy("name").PageToken(myFilesList.NextPageToken).Do()
+	if err != nil {
+		fmt.Fprintf(w, "Couldn't retrieve files ", err)
+		break
+	}
+	fmt.Fprintln(w, "Next Page: !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+	if len(myFilesList.Files) > 0 {
+		for _, i := range myFilesList.Files {
+			fmt.Fprintln(w, i.Name, " ", i.Id)
+		}
+	} else {
+		fmt.Fprintln(w, "No files found.")
+	}
+}
+
+
+myFile := drive.File{Name: "cats.png"}
+```
+
+Again, the *Id* will be generated for us if we do not provide any.
+
+Putting the file into *Google Drive* is pretty easy now. We create a create request, referencing our file metadata in it:
+
+```go
+myFile := drive.File{Name: "cats.png"}
+
+driveService.Files.Create(&myFile)
+```
+
+and ***Do()*** it, saving the results:
+
+```go
+createdFile, err := driveService.Files.Create(&myFile).Do()
+if err != nil {
+	fmt.Fprintf(w, "Couldn't create file ", err)
+}
+```
+
+Ok, if you started this code, you would get a ***cats.png*** file. However, it's empty. So let's add some data to it!
 
 
 

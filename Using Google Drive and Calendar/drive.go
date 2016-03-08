@@ -63,7 +63,7 @@ func handleGoogleCallback(w http.ResponseWriter, r *http.Request) {
 	driveService, err := drive.New(client)
 
 
-	myFilesList, err := driveService.Files.List().Do()
+	myFilesList, err := driveService.Files.List().OrderBy("name").Do()
 	if err != nil {
 		fmt.Fprintf(w, "Couldn't retrieve files ", err)
 	}
@@ -75,7 +75,7 @@ func handleGoogleCallback(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintln(w, "No files found.")
 	}
 	for myFilesList.NextPageToken != "" {
-		myFilesList, err = driveService.Files.List().PageToken(myFilesList.NextPageToken).Do()
+		myFilesList, err = driveService.Files.List().OrderBy("name").PageToken(myFilesList.NextPageToken).Do()
 		if err != nil {
 			fmt.Fprintf(w, "Couldn't retrieve files ", err)
 			break
