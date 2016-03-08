@@ -2,7 +2,7 @@
 
 ## Introduction
 
-Integrating Google services into your app can lead to a lot of nice features for your users, and can create a seamless experience for the user. In this tutorial we'll learn how to use the most useful functionalities of ***Google Calendar*** and ***Google Drive***.
+Integrating Google services into your app can lead to a lot of nice features for your users, and can create a seamless experience for them. In this tutorial we'll learn how to use the most useful functionalities of ***Google Calendar*** and ***Google Drive***.
 
 ## The theory
 
@@ -17,7 +17,7 @@ After you learn it for one Google service, it will be trivial for you to use it 
 
 ## Dependencies
 
-Here we will need the Google Calendar and Google Drive libraries, both of which we need version 3. (the newest at the moment)
+Here we will need the Google Calendar and Google Drive libraries, both of which we need version 3 of. (the newest at the moment)
 
 So make sure to:
 
@@ -100,7 +100,7 @@ There is one thing I haven't covered in my previous blog post, namely the last l
 client := oauth2.NewClient(context.Background(), oauth2.StaticTokenSource(token))
 ```
 
-We need an ***OAuth2 client*** to use the Google API, so we create one. It takes a context, for lack of which we just use the background context. It also needs a token source. As we only want to make one request and know that this token will suffice we create a static token source which will always generate the same token which we've passed to it.
+We need an ***OAuth2 client*** to use the Google API, so we create one. It takes a *context*, for lack of which we just use the *background context*. It also needs a *token source*. As we only want to make one request and know that this token will suffice we create a *static token source* which will always generate the same *token* which we've passed to it.
 
 ## Creating the Calendar app.
 
@@ -287,7 +287,7 @@ if err != nil {
 
 Ok, to begin with let's learn how to list files from the ***Google Drive***. There is an important concept you should understand before we start. Whenever we request a list of files from *Google Drive*, those can literally be thousands of files. That's why we get one page of files, which includes files metadata, not the content, and a ***NextPageToken***, which we can use to get the next page.
 
-As before, we create a list request.
+As before with the calendar app, we create a list request.
 
 ```go
 driveService, err := drive.New(client)
@@ -385,7 +385,7 @@ myFile := drive.File{Name: "cats.png"}
 
 Again, the *Id* will be generated for us if we do not provide any.
 
-Putting the file into *Google Drive* is pretty easy now. We create a create request, referencing our file metadata in it:
+Putting the file into *Google Drive* is pretty easy now. We create a *create request*, referencing our file metadata in it:
 
 ```go
 myFile := drive.File{Name: "cats.png"}
