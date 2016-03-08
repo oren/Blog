@@ -404,6 +404,55 @@ if err != nil {
 
 Ok, if you started this code, you would get a ***cats.png*** file. However, it's empty. So let's add some data to it!
 
+To add it, we'll first need some data. We can load it from a file:
 
+```go
+createdFile, err := driveService.Files.Create(&myFile).Do()
+if err != nil {
+	fmt.Fprintf(w, "Couldn't create file ", err)
+}
+myImage, err := os.Open("/tmp/image.png")
+if err != nil {
+	fmt.Fprintln(w, err)
+}
+```
+
+Now we have to create the updated file metadata:
+
+```go
+myImage, err := os.Open("/tmp/image.png")
+if err != nil {
+	fmt.Fprintln(w, err)
+}
+updatedFile := drive.File{Name: "catsUpdated.png"}
+```
+
+We have to construct an update request:
+
+```go
+driveService.Files.Update(createdFile.Id, &updatedFile)
+```
+
+Here we specify the ***Id*** of the file to modify, and the new metadata. We'll now add the data to the update request, and ***Do()*** it, checking for errors and ignoring the result.
+
+```go
+_, err = driveService.Files.Update(createdFile.Id, &updatedFile).Media(myImage).Do()
+if err != nil {
+	fmt.Fprintln(w, err)
+}
+fmt.Fprintln(w, createdFile.Id)
+```
+
+In the end we send the new file id to the user.
+
+#### Hint
+
+You could add the ***Media*** option already to the create request if you wanted.
+
+## Conclusion
+
+I suppose this was a good short introduction into the structure of the ***Google API***. After learning these, you should have few to no problems using the other API's.
+
+Have fun integrating it into your app!
 
 [1]:https://jacobmartins.com/2016/02/29/getting-started-with-oauth2-in-go/
