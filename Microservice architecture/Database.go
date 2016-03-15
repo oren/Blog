@@ -122,6 +122,7 @@ func getNewTask(w http.ResponseWriter, r *http.Request) {
 
 		taskToSend := Task{Id: -1, State: 0}
 
+		oNFTMutex.Lock()
 		datastoreMutex.Lock()
 		for i := oldestNotFinishedTask; i < len(datastore); i++ {
 			if datastore[i].State == 2 && i == oldestNotFinishedTask {
@@ -135,6 +136,7 @@ func getNewTask(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 		datastoreMutex.Unlock()
+		oNFTMutex.Unlock()
 
 		if taskToSend.Id == -1 {
 			w.WriteHeader(http.StatusBadRequest)
