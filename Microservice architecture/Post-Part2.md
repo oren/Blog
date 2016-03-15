@@ -196,9 +196,9 @@ How it will work:
 * It will allow to get a task by *Id*.
 * It will allow to set a task by *Id*.
 * The state will be represented by an int:
-  * 0 - not started
-  * 1 - in progress
-  * 2 - finished
+	* 0 - not started
+	* 1 - in progress
+	* 2 - finished
 * It will change the state of a task to *not started* if it's been too long *in progress*. (maybe someone started to work on it but has crashed)
 * It will allow to list all tasks for debugging/analytical purposes.
 
@@ -603,6 +603,6 @@ We check if there are at least 3 arguments. (The first being the executable) We 
 
 ## Conclusion
 
-We now have finished our *k/v store* and our *database*. You can even test them now. (I used [this one][1].) Remember that the code is subject to change if it will be necessary  but I don't think so. I hope you enjoyed the tutorial! I encourage you to comment, and if you have an opposing view to mine please make sure to express it in a comment too!
+We now have finished our *k/v store* and our *database*. You can even test them now. (I used [this one][1].) Remember that the code is subject to change if it will be necessary	but I don't think so. I hope you enjoyed the tutorial! I encourage you to comment, and if you have an opposing view to mine please make sure to express it in a comment too!
 
 [1]:https://chrome.google.com/webstore/detail/advanced-rest-client/hgmloofddffdnphfgcellkdfbfbjeloo
