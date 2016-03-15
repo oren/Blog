@@ -1,4 +1,4 @@
-# Web app using Microservices in Go: Part 2 - Implementation
+# Web app using Microservices in Go: Part 2 - k/v store and Database
 
 ## Introduction
 
