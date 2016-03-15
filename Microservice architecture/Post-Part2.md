@@ -138,15 +138,17 @@ The only difference is that we also check if there is a right value parameter an
 Now we can add the implementation of the list function which is also pretty simple:
 
 ```go
-if(r.Method == http.MethodGet) {
-	kVStoreMutex.Lock()
-	for key, value := range keyValueStore {
-		fmt.Fprintln(w, key, ":", value)
+func list(w http.ResponseWriter, r *http.Request) {
+	if(r.Method == http.MethodGet) {
+		kVStoreMutex.Lock()
+		for key, value := range keyValueStore {
+			fmt.Fprintln(w, key, ":", value)
+		}
+		kVStoreMutex.Unlock()
+	} else {
+		w.WriteHeader(http.StatusBadRequest)
+		fmt.Fprint(w, "Error: Only GET accepted.")
 	}
-	kVStoreMutex.Unlock()
-} else {
-	w.WriteHeader(http.StatusBadRequest)
-	fmt.Fprint(w, "Error: Only GET accepted.")
 }
 ```
 
