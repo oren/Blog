@@ -28,9 +28,12 @@ var keyValueStore map[string]string
 var kVStoreMutex sync.Mutex
 
 func main() {
+	keyValueStore = make(map[string]string)
+	kVStoreMutex = sync.Mutex{}
 	http.HandleFunc("/get", get)
 	http.HandleFunc("/set", set)
 	http.HandleFunc("/list", list)
+	http.ListenAndServe(":3000", nil)
 }
 
 func get(w http.ResponseWriter, r *http.Request) {
@@ -46,87 +49,91 @@ func list(w http.ResponseWriter, r *http.Request) {
 
 And now let's dive into the implementation.
 
-First, we should add parameter parsing in the get function, and verify that there is only one parameter.
+First, we should add parameter parsing in the get function and verify the key parameter is right.
 
 ```go
 func get(w http.ResponseWriter, r *http.Request) {
-	if(r.Method != "GET") {
+	if(r.Method == http.MethodGet) {
 		values, err := url.ParseQuery(r.URL.RawQuery)
 		if err != nil {
 			fmt.Fprint(w, "Error:", err)
 			return
 		}
-		if len(values.Get("key")) != 1 {
-			fmt.Fprint(w, "Error")
+		if len(values.Get("key")) == 0 {
+			fmt.Fprint(w, "Error:","Wrong input key.")
 			return
 		}
-
-		kVStoreMutex.Lock()
-		value := keyValueStore[values.Get("key")[0]]
-		kVStoreMutex.Unlock()
-
-		fmt.Fprint(w, value)
 	} else {
 		fmt.Fprint(w, "Error: Only GET accepted.")
 	}
 }
 ```
 
-There should be only 1 *Id*, hence the length check. We also check if the method is GET.
-We answer with explicit error before each error message so it doesn't get misinterpreted by the client.
+The *Id* shouldn't have a length of 0, hence the length check. We also check if the method is GET.
+We answer with an explicit ***Error:*** before each error message so it doesn't get misinterpreted by the client.
 
 Now, let's access our map and send back a response:
 
 ```go
-  if len(values.Get("key")) != 1 {
-    fmt.Fprint(w, "Error")
-    return
-  }
+if len(values.Get("key")) == 0 {
+	fmt.Fprint(w, "Error:","Wrong input key.")
+	return
+}
 
-  kVStoreMutex.Lock()
-  value := keyValueStore[values.Get("key")[0]]
-  kVStoreMutex.Unlock()
+kVStoreMutex.Lock()
+value := keyValueStore[string(values.Get("key"))]
+kVStoreMutex.Unlock()
 
-  fmt.Fprint(w, value)
+fmt.Fprint(w, value)
 ```
 
 We copy the value into a variable so that we don't block the map while sending back the response.
 
-Now let's create the setting function, it's actually pretty similar.
+Now let's create the set function, it's actually pretty similar.
 
 ```go
-func set(w http.ResponseWriter, r *http.Request) {
-	if(r.Method != "POST") {
+if(r.Method == http.MethodPost) {
 		values, err := url.ParseQuery(r.URL.RawQuery)
 		if err != nil {
 			fmt.Fprint(w, "Error:", err)
 			return
 		}
-		if len(values.Get("key")) != 1 {
-			fmt.Fprint(w, "Error:", err)
+		if len(values.Get("key")) == 0 {
+			fmt.Fprint(w, "Error:", "Wrong input key.")
 			return
 		}
-		if len(values.Get("value")) != 1 {
-			fmt.Fprint(w, "Error:", err)
+		if len(values.Get("value")) == 0 {
+			fmt.Fprint(w, "Error:", "Wrong input value.")
 			return
 		}
 
 		kVStoreMutex.Lock()
-		keyValueStore[values.Get("id")[0]] = values.Get("value")[0]
+		keyValueStore[string(values.Get("key"))] = string(values.Get("value"))
 		kVStoreMutex.Unlock()
 
 		fmt.Fprint(w, "success")
 	} else {
 		fmt.Fprint(w, "Error: Only POST accepted.")
 	}
-}
 ```
 
-The only difference is that we also check if there is exactly one value parameter and check if the method is POST.
+The only difference is that we also check if there is a right value parameter and check if the method is POST.
 
 Now we can add the implementation of the list function which is also pretty simple:
 
+```go
+if(r.Method == http.MethodGet) {
+	kVStoreMutex.Lock()
+	for key, value := range keyValueStore {
+		fmt.Fprintln(w, key, ":", value)
+	}
+	kVStoreMutex.Unlock()
+} else {
+	fmt.Fprint(w, "Error: Only GET accepted.")
+}
+```
 
+It just ranges over the map and prints everything. Simple yet effective.
 
 ## The database
 
