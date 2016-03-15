@@ -153,8 +153,7 @@ After thinking through the design, I decided that it would be better if the data
 How it will work:
 * It will save new tasks assigning consecutive *Id*'s.
 * It will remember the oldest not finished task.
-* It will allow to get the last not finished task.
-* It will allow to get the last not started task.
+* It will allow to get a new task to do.
 * It will allow to get a task by *Id*.
 * It will allow to set a task by *Id*.
 * The state will be represented by an int:
@@ -168,7 +167,7 @@ How it will work:
 
 ### Implementation
 
-First, we should create the API and later we will add the implementations of the functionality as before with the key-value store. We will also need a global slice being our data store, a variable pointing to the oldest not finished task, and mutexes for accessing the datastore and pointer.
+First, we should create the API and later we will add the implementations of the functionality as before with the key-value store. We will also need a global map being our data store, a variable pointing to the oldest not finished task, and mutexes for accessing the datastore and pointer.
 
 ```go
 package main
@@ -196,10 +195,10 @@ func main() {
 
 	http.HandleFunc("/getById", getById)
 	http.HandleFunc("/newTask", newTask)
-	http.HandleFunc("/getLastNotFinished", getLastNotFinished)
-	http.HandleFunc("/getLastNotStarted", getLastNotStarted)
+	http.HandleFunc("/getNewTask", getNewTask)
 	http.HandleFunc("/finishTask", finishTask)
-	http.HandleFunc("/set", setById)
+	http.HandleFunc("/setById", setById)
+	http.HandleFunc("/list", list)
 	http.ListenAndServe(":3001", nil)
 }
 
@@ -209,16 +208,17 @@ func getById(w http.ResponseWriter, r *http.Request) {
 func newTask(w http.ResponseWriter, r *http.Request) {
 }
 
-func getLastNotFinished(w http.ResponseWriter, r *http.Request) {
-}
-
-func getLastNotStarted(w http.ResponseWriter, r *http.Request) {
+func getNewTask(w http.ResponseWriter, r *http.Request) {
 }
 
 func finishTask(w http.ResponseWriter, r *http.Request) {
 }
 
 func setById(w http.ResponseWriter, r *http.Request) {
+}
+
+func list(w http.ResponseWriter, r *http.Request) {
+
 }
 ```
 
@@ -247,7 +247,7 @@ func getById(w http.ResponseWriter, r *http.Request) {
 	if r.Method == http.MethodGet {
 		values, err := url.ParseQuery(r.URL.RawQuery)
 		if err != nil {
-			w.Write(err)
+			fmt.Fprint(w, err)
 			return
 		}
 		if len(values.Get("id")) == 0 {
@@ -257,8 +257,14 @@ func getById(w http.ResponseWriter, r *http.Request) {
 		}
 
 		id, err := strconv.Atoi(string(values.Get("id")))
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			fmt.Fprint(w, err)
+			return
+		}
+
 		datastoreMutex.Lock()
-		bIsInError := err != nil || id > len(datastore) // Reading the length of a slice msut be done in a synchronized manner. That's why the mutex is used.
+		bIsInError := err != nil || id >= len(datastore) // Reading the length of a slice must be done in a synchronized manner. That's why the mutex is used.
 		datastoreMutex.Unlock()
 
 		if bIsInError {
@@ -275,11 +281,11 @@ func getById(w http.ResponseWriter, r *http.Request) {
 
 		if err != nil {
 			w.WriteHeader(http.StatusBadRequest)
-			w.Write(err)
+			fmt.Fprint(w, err)
 			return
 		}
 
-		fmt.Fprint(w, response)
+		fmt.Fprint(w, string(response))
 	} else {
 		w.WriteHeader(http.StatusBadRequest)
 		fmt.Fprint(w, "Error: Only GET accepted")
@@ -287,6 +293,227 @@ func getById(w http.ResponseWriter, r *http.Request) {
 }
 ```
 
-We check if the ***GET*** method has been used. Later we parse the *id* argument and check if it's proper. We then get the *id* as an **int** using the *strconv.Atoi* function. Next we make sure it is not out of bounds for our *datastore*, which we have to do using *mutexes* because we're accessing a slice which could be accessed from another thread. If everything is ok, then, again using *mutexes*, we get the task using the *id*.
+We check if the ***GET*** method has been used. Later we parse the *id* argument and check if it's proper. We then get the *id* as an **int** using the *strconv.Atoi* function. Next we make sure it is not out of bounds for our *datastore*, which we have to do using *mutexes* because we're accessing a map which could be accessed from another thread. If everything is ok, then, again using *mutexes*, we get the task using the *id*.
 
 After that we use the *JSON* library to marshal our struct into a *JSON object* and if that finishes without problems we send the *JSON object* to the client.
+
+It's also time to implement our *Task* struct:
+
+```go
+type Task struct {
+	Id int `json:"id"`
+	State int `json:"state"`
+}
+```
+
+It's all that's needed. We also added the information the *JSON* marshaller needs.
+
+We can now go on with implementing the *newTask* function:
+
+```go
+func newTask(w http.ResponseWriter, r *http.Request) {
+	if r.Method == http.MethodPost {
+		datastoreMutex.Lock()
+		taskToAdd := Task{
+			Id: len(datastore),
+			State: 0,
+		}
+		datastore[taskToAdd.Id] = taskToAdd
+		datastoreMutex.Unlock()
+
+		fmt.Fprint(w, taskToAdd.Id)
+	} else {
+		w.WriteHeader(http.StatusBadRequest)
+		fmt.Fprint(w, "Error: Only POST accepted")
+	}
+}
+```
+
+It's pretty small actually. Creating a new *Task* with the next id and adding it to the *datastore*. After that it sends back the new *Tasks* Id.
+
+That means we can go on to implementing the function used to list all *Tasks*, as this helps with debugging during writing.
+
+It's basically the same as with the key-value store:
+
+```go
+func list(w http.ResponseWriter, r *http.Request) {
+	if r.Method == http.MethodGet {
+		datastoreMutex.Lock()
+		for key, value := range datastore {
+			fmt.Fprintln(w, key, ": ", "id:", value.Id, " state:", value.State)
+		}
+		datastoreMutex.Unlock()
+	} else {
+		w.WriteHeader(http.StatusBadRequest)
+		fmt.Fprint(w, "Error: Only GET accepted")
+	}
+}
+```
+
+Ok, so now we will implement the function which can set the *Task* by *id*:
+
+```go
+func setById(w http.ResponseWriter, r *http.Request) {
+	if r.Method == http.MethodPost {
+		taskToSet := Task{}
+
+		data, err := ioutil.ReadAll(r.Body)
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			fmt.Fprint(w, err)
+			return
+		}
+		err = json.Unmarshal([]byte(data), &taskToSet)
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			fmt.Fprint(w, err)
+			return
+		}
+
+		bErrored := false
+		datastoreMutex.Lock()
+		if taskToSet.Id >= len(datastore) || taskToSet.State > 2 || taskToSet.State < 0 {
+			bErrored = true
+		} else {
+			datastore[taskToSet.Id] = taskToSet
+		}
+		datastoreMutex.Unlock()
+
+		if bErrored {
+			w.WriteHeader(http.StatusBadRequest)
+			fmt.Fprint(w, "Error: Wrong input")
+			return
+		}
+
+		fmt.Fprint(w, "success")
+	} else {
+		w.WriteHeader(http.StatusBadRequest)
+		fmt.Fprint(w, "Error: Only POST accepted")
+	}
+}
+```
+
+Nothing new. We get the request and try to unmarshal it. If it succeeds we put it into the map, checking if it isn't out of bounds or if the state is invalid. If it is then we print an error, otherwise we print *success*.
+
+If we already have this we can now implement the finish task function, because it's very simple:
+
+```go
+func finishTask(w http.ResponseWriter, r *http.Request) {
+	if r.Method == http.MethodPost {
+		values, err := url.ParseQuery(r.URL.RawQuery)
+		if err != nil {
+			fmt.Fprint(w, err)
+			return
+		}
+		if len(values.Get("id")) == 0 {
+			w.WriteHeader(http.StatusBadRequest)
+			fmt.Fprint(w, "Wrong input")
+			return
+		}
+
+		id, err := strconv.Atoi(string(values.Get("id")))
+
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			fmt.Fprint(w, err)
+			return
+		}
+
+		updatedTask := Task{Id: id, State: 2}
+
+		bErrored := false
+
+		datastoreMutex.Lock()
+		if datastore[id].State == 1 {
+			datastore[id] = updatedTask
+		} else {
+			bErrored = true
+		}
+		datastoreMutex.Unlock()
+
+		if bErrored {
+			w.WriteHeader(http.StatusBadRequest)
+			fmt.Fprint(w, "Error: Wrong input")
+			return
+		}
+
+		fmt.Fprint(w, "success")
+	} else {
+		w.WriteHeader(http.StatusBadRequest)
+		fmt.Fprint(w, "Error: Only POST accepted")
+	}
+}
+```
+
+It's pretty similar to the *getById* function. The difference here is that here we update the state and only if it is currently in progress.
+
+And now to one of the most interesting functions. The *getNewTask* function. It has to handle updating the oldest known finished task, and it also needs to handle the situation when someone takes a task but crashes during work. This would lead to a ghost task forever being *in progress*. That's why we'll add functionality which after 120 seconds from starting a task will set it back to *not finished*:
+
+```go
+func getNewTask(w http.ResponseWriter, r *http.Request) {
+	if r.Method == http.MethodPost {
+
+		bErrored := false
+
+		datastoreMutex.Lock()
+		if len(datastore) == 0 {
+			bErrored = true
+		}
+		datastoreMutex.Unlock()
+
+		if bErrored {
+			w.WriteHeader(http.StatusBadRequest)
+			fmt.Fprint(w, "Error: No non-finished task.")
+			return
+		}
+
+		taskToSend := Task{Id: -1, State: 0}
+
+		datastoreMutex.Lock()
+		for i := oldestNotFinishedTask; i < len(datastore); i++ {
+			if datastore[i].State == 2 && i == oldestNotFinishedTask {
+				oldestNotFinishedTask++
+				continue
+			}
+			if datastore[i].State == 0 {
+				datastore[i] = Task{Id: i, State: 1}
+				taskToSend = datastore[i]
+				break
+			}
+		}
+		datastoreMutex.Unlock()
+
+		if taskToSend.Id == -1 {
+			w.WriteHeader(http.StatusBadRequest)
+			fmt.Fprint(w, "Error: No non-finished task.")
+			return
+		}
+
+		myId := taskToSend.Id
+
+		go func() {
+			time.Sleep(time.Second * 120)
+			datastoreMutex.Lock()
+			if datastore[myId].State == 1 {
+				datastore[myId] = Task{Id: myId, State: 0}
+			}
+			datastoreMutex.Unlock()
+		}()
+
+		response, err := json.Marshal(taskToSend)
+
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			fmt.Fprint(w, err)
+			return
+		}
+
+		fmt.Fprint(w, string(response))
+	} else {
+		w.WriteHeader(http.StatusBadRequest)
+		fmt.Fprint(w, "Error: Only POST accepted")
+	}
+}
+```
+
+First we try to find the oldest task that hasn't started yet. By the way we update the oldestNotFinishedTask variable. If a task is finished and is pointed on by the variable, the variable get's incremented. If we find something that's not started, then we break out of the loop and send it back to the user setting it to *in progress*. However, on the way we start a function on another thread that will change the state of the task back to *not started* if it's in progress for more than 120 seconds.
