@@ -116,7 +116,7 @@ func getNewTask(w http.ResponseWriter, r *http.Request) {
 
 		if bErrored {
 			w.WriteHeader(http.StatusBadRequest)
-			fmt.Fprint(w, "Error: No non-finished task.")
+			fmt.Fprint(w, "Error: No non-started task.")
 			return
 		}
 
@@ -140,7 +140,7 @@ func getNewTask(w http.ResponseWriter, r *http.Request) {
 
 		if taskToSend.Id == -1 {
 			w.WriteHeader(http.StatusBadRequest)
-			fmt.Fprint(w, "Error: No non-finished task.")
+			fmt.Fprint(w, "Error: No non-started task.")
 			return
 		}
 

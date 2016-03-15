@@ -15,6 +15,7 @@ func main() {
 	kVStoreMutex = sync.Mutex{}
 	http.HandleFunc("/get", get)
 	http.HandleFunc("/set", set)
+	http.HandleFunc("/remove", remove)
 	http.HandleFunc("/list", list)
 	http.ListenAndServe(":3000", nil)
 }
@@ -71,6 +72,31 @@ func set(w http.ResponseWriter, r *http.Request) {
 	} else {
 		w.WriteHeader(http.StatusBadRequest)
 		fmt.Fprint(w, "Error: Only POST accepted.")
+	}
+}
+
+func remove(w http.ResponseWriter, r *http.Request) {
+	if(r.Method == http.MethodDelete) {
+		values, err := url.ParseQuery(r.URL.RawQuery)
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			fmt.Fprint(w, "Error:", err)
+			return
+		}
+		if len(values.Get("key")) == 0 {
+			w.WriteHeader(http.StatusBadRequest)
+			fmt.Fprint(w, "Error:", "Wrong input key.")
+			return
+		}
+
+		kVStoreMutex.Lock()
+		delete(keyValueStore, values.Get("key"))
+		kVStoreMutex.Unlock()
+
+		fmt.Fprint(w, "success")
+	} else {
+		w.WriteHeader(http.StatusBadRequest)
+		fmt.Fprint(w, "Error: Only DELETE accepted.")
 	}
 }
 

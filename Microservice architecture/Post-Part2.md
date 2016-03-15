@@ -10,7 +10,7 @@ In this part we will implement part of the microservices needed for our web app.
 
 ### Design
 
-The design hasn't changed much. We will save the key-value pairs as a global map, and create a global mutex for concurrent access. We'll also add the ability to list all key-value pairs for debugging/analytical purposes.
+The design hasn't changed much. We will save the key-value pairs as a global map, and create a global mutex for concurrent access. We'll also add the ability to list all key-value pairs for debugging/analytical purposes. We will also add the ability to delete existing entries.
 
 First, let's create the structure:
 
@@ -32,6 +32,7 @@ func main() {
 	kVStoreMutex = sync.Mutex{}
 	http.HandleFunc("/get", get)
 	http.HandleFunc("/set", set)
+	http.HandleFunc("/remove", remove)
 	http.HandleFunc("/list", list)
 	http.ListenAndServe(":3000", nil)
 }
@@ -40,6 +41,9 @@ func get(w http.ResponseWriter, r *http.Request) {
 }
 
 func set(w http.ResponseWriter, r *http.Request) {
+}
+
+func remove(w http.ResponseWriter, r *http.Request) {
 }
 
 func list(w http.ResponseWriter, r *http.Request) {
@@ -96,7 +100,8 @@ We copy the value into a variable so that we don't block the map while sending b
 Now let's create the set function, it's actually pretty similar.
 
 ```go
-if(r.Method == http.MethodPost) {
+func set(w http.ResponseWriter, r *http.Request) {
+	if(r.Method == http.MethodPost) {
 		values, err := url.ParseQuery(r.URL.RawQuery)
 		if err != nil {
 			w.WriteHeader(http.StatusBadRequest)
@@ -123,6 +128,7 @@ if(r.Method == http.MethodPost) {
 		w.WriteHeader(http.StatusBadRequest)
 		fmt.Fprint(w, "Error: Only POST accepted.")
 	}
+}
 ```
 
 The only difference is that we also check if there is a right value parameter and check if the method is POST.
@@ -143,6 +149,37 @@ if(r.Method == http.MethodGet) {
 ```
 
 It just ranges over the map and prints everything. Simple yet effective.
+
+And to finish the key-value store we will implement the *remove* function:
+
+```go
+func remove(w http.ResponseWriter, r *http.Request) {
+	if(r.Method == http.MethodDelete) {
+		values, err := url.ParseQuery(r.URL.RawQuery)
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			fmt.Fprint(w, "Error:", err)
+			return
+		}
+		if len(values.Get("key")) == 0 {
+			w.WriteHeader(http.StatusBadRequest)
+			fmt.Fprint(w, "Error:", "Wrong input key.")
+			return
+		}
+
+		kVStoreMutex.Lock()
+		delete(keyValueStore, values.Get("key"))
+		kVStoreMutex.Unlock()
+
+		fmt.Fprint(w, "success")
+	} else {
+		w.WriteHeader(http.StatusBadRequest)
+		fmt.Fprint(w, "Error: Only DELETE accepted.")
+	}
+}
+```
+
+It's the same as setting a value, but instead of setting it we delete it.
 
 ## The database
 
@@ -445,9 +482,9 @@ func finishTask(w http.ResponseWriter, r *http.Request) {
 }
 ```
 
-It's pretty similar to the *getById* function. The difference here is that here we update the state and only if it is currently in progress.
+It's pretty similar to the *getById* function. The difference here is that here we update the state and only if it is currently *in progress*.
 
-And now to one of the most interesting functions. The *getNewTask* function. It has to handle updating the oldest known finished task, and it also needs to handle the situation when someone takes a task but crashes during work. This would lead to a ghost task forever being *in progress*. That's why we'll add functionality which after 120 seconds from starting a task will set it back to *not finished*:
+And now to one of the most interesting functions. The *getNewTask* function. It has to handle updating the oldest known finished task, and it also needs to handle the situation when someone takes a task but crashes during work. This would lead to a ghost task forever being *in progress*. That's why we'll add functionality which after 120 seconds from starting a task will set it back to *not started*:
 
 ```go
 func getNewTask(w http.ResponseWriter, r *http.Request) {
@@ -463,7 +500,7 @@ func getNewTask(w http.ResponseWriter, r *http.Request) {
 
 		if bErrored {
 			w.WriteHeader(http.StatusBadRequest)
-			fmt.Fprint(w, "Error: No non-finished task.")
+			fmt.Fprint(w, "Error: No non-started task.")
 			return
 		}
 
@@ -487,7 +524,7 @@ func getNewTask(w http.ResponseWriter, r *http.Request) {
 
 		if taskToSend.Id == -1 {
 			w.WriteHeader(http.StatusBadRequest)
-			fmt.Fprint(w, "Error: No non-finished task.")
+			fmt.Fprint(w, "Error: No non-started task.")
 			return
 		}
 
@@ -518,4 +555,10 @@ func getNewTask(w http.ResponseWriter, r *http.Request) {
 }
 ```
 
-First we try to find the oldest task that hasn't started yet. By the way we update the oldestNotFinishedTask variable. If a task is finished and is pointed on by the variable, the variable get's incremented. If we find something that's not started, then we break out of the loop and send it back to the user setting it to *in progress*. However, on the way we start a function on another thread that will change the state of the task back to *not started* if it's in progress for more than 120 seconds.
+First we try to find the oldest task that hasn't started yet. By the way we update the oldestNotFinishedTask variable. If a task is finished and is pointed on by the variable, the variable get's incremented. If we find something that's not started, then we break out of the loop and send it back to the user setting it to *in progress*. However, on the way we start a function on another thread that will change the state of the task back to *not started* if it's still in progress after 120 seconds.
+
+Now the last thing. A database is useless... when you don't know where it is! That's why we'll now implement the mechanism that the database will use to register itself in the key-value store:
+
+```go
+
+```
