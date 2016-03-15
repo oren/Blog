@@ -25,7 +25,7 @@ How it will work:
   * 2 - finished
 * Change the state to *not started* if it's been too long *in progress*. (maybe someone started to work but crashed)
 
-![Database microservice post](https://www.lucidchart.com/publicSegments/view/2253c249-6ae2-4b09-ab1a-088f3e0b6151/image.png)
+![Database microservice post](https://www.lucidchart.com/publicSegments/view/4cf0690e-3dbb-42d9-befd-4a6efaaf6f72/image.png)
 
 ### Implementation
 
