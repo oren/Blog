@@ -10,7 +10,7 @@ In this part we will implement part of the microservices needed for our web app.
 
 ### Design
 
-The design hasn't changed much. We will save the key-value pairs as a global map, and create a global mutex for concurrent access. We'll also add the ability to list all key-value pairs for debugging/analytical purpouses.
+The design hasn't changed much. We will save the key-value pairs as a global map, and create a global mutex for concurrent access. We'll also add the ability to list all key-value pairs for debugging/analytical purposes.
 
 First, let's create the structure:
 
@@ -49,33 +49,37 @@ func list(w http.ResponseWriter, r *http.Request) {
 
 And now let's dive into the implementation.
 
-First, we should add parameter parsing in the get function and verify the key parameter is right.
+First, we should add parameter parsing in the get function and verify that the key parameter is right.
 
 ```go
 func get(w http.ResponseWriter, r *http.Request) {
 	if(r.Method == http.MethodGet) {
 		values, err := url.ParseQuery(r.URL.RawQuery)
 		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
 			fmt.Fprint(w, "Error:", err)
 			return
 		}
 		if len(values.Get("key")) == 0 {
+			w.WriteHeader(http.StatusBadRequest)
 			fmt.Fprint(w, "Error:","Wrong input key.")
 			return
 		}
 	} else {
+		w.WriteHeader(http.StatusBadRequest)
 		fmt.Fprint(w, "Error: Only GET accepted.")
 	}
 }
 ```
 
-The *Id* shouldn't have a length of 0, hence the length check. We also check if the method is GET.
-We answer with an explicit ***Error:*** before each error message so it doesn't get misinterpreted by the client.
+The *key* shouldn't have a length of 0, hence the length check. We also check if the method is GET, if it isn't we print it and set the status code to ***bad request***.
+We answer with an explicit ***Error:*** before each error message so it doesn't get misinterpreted by the client as a value.
 
 Now, let's access our map and send back a response:
 
 ```go
 if len(values.Get("key")) == 0 {
+	w.WriteHeader(http.StatusBadRequest)
 	fmt.Fprint(w, "Error:","Wrong input key.")
 	return
 }
@@ -95,14 +99,17 @@ Now let's create the set function, it's actually pretty similar.
 if(r.Method == http.MethodPost) {
 		values, err := url.ParseQuery(r.URL.RawQuery)
 		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
 			fmt.Fprint(w, "Error:", err)
 			return
 		}
 		if len(values.Get("key")) == 0 {
+			w.WriteHeader(http.StatusBadRequest)
 			fmt.Fprint(w, "Error:", "Wrong input key.")
 			return
 		}
 		if len(values.Get("value")) == 0 {
+			w.WriteHeader(http.StatusBadRequest)
 			fmt.Fprint(w, "Error:", "Wrong input value.")
 			return
 		}
@@ -113,6 +120,7 @@ if(r.Method == http.MethodPost) {
 
 		fmt.Fprint(w, "success")
 	} else {
+		w.WriteHeader(http.StatusBadRequest)
 		fmt.Fprint(w, "Error: Only POST accepted.")
 	}
 ```
@@ -129,6 +137,7 @@ if(r.Method == http.MethodGet) {
 	}
 	kVStoreMutex.Unlock()
 } else {
+	w.WriteHeader(http.StatusBadRequest)
 	fmt.Fprint(w, "Error: Only GET accepted.")
 }
 ```
@@ -152,10 +161,132 @@ How it will work:
   * 0 - not started
   * 1 - in progress
   * 2 - finished
-* Change the state to *not started* if it's been too long *in progress*. (maybe someone started to work but crashed)
+* It will change the state of a task to *not started* if it's been too long *in progress*. (maybe someone started to work on it but has crashed)
+* It will allow to list all tasks for debugging/analytical purposes.
 
 ![Database microservice post](https://www.lucidchart.com/publicSegments/view/4cf0690e-3dbb-42d9-befd-4a6efaaf6f72/image.png)
 
 ### Implementation
 
-First, we should create the API and later we will add the implementations.
+First, we should create the API and later we will add the implementations of the functionality as before with the key-value store. We will also need a global slice being our data store, a variable pointing to the oldest not finished task, and mutexes for accessing the datastore and pointer.
+
+```go
+package main
+
+import (
+	"net/http"
+	"net/url"
+	"fmt"
+)
+
+type Task struct {
+}
+
+var datastore []Task
+var datastoreMutex sync.Mutex
+var oldestNotFinishedTask int // remember to account for potential int overflow in production. Use something bigger.
+var oNFTMutex sync.Mutex
+
+func main() {
+
+	datastore = make([]Task, 0)
+	datastoreMutex = sync.Mutex{}
+	oldestNotFinishedTask = 0
+	oNFTMutex = sync.Mutex{}
+
+	http.HandleFunc("/getById", getById)
+	http.HandleFunc("/newTask", newTask)
+	http.HandleFunc("/getLastNotFinished", getLastNotFinished)
+	http.HandleFunc("/getLastNotStarted", getLastNotStarted)
+	http.HandleFunc("/finishTask", finishTask)
+	http.HandleFunc("/set", setById)
+	http.ListenAndServe(":3001", nil)
+}
+
+func getById(w http.ResponseWriter, r *http.Request) {
+}
+
+func newTask(w http.ResponseWriter, r *http.Request) {
+}
+
+func getLastNotFinished(w http.ResponseWriter, r *http.Request) {
+}
+
+func getLastNotStarted(w http.ResponseWriter, r *http.Request) {
+}
+
+func finishTask(w http.ResponseWriter, r *http.Request) {
+}
+
+func setById(w http.ResponseWriter, r *http.Request) {
+}
+```
+
+We also already declared the ***Task*** type which we will use for storage.
+
+//TODO
+
+//Write the service discovery code
+
+//to register in the key-value store
+
+//self ip through argument
+
+//
+
+//
+
+//
+
+So far so good. Now let's implement all those functions!
+
+First, let's implement the getById function.
+
+```go
+func getById(w http.ResponseWriter, r *http.Request) {
+	if r.Method == http.MethodGet {
+		values, err := url.ParseQuery(r.URL.RawQuery)
+		if err != nil {
+			w.Write(err)
+			return
+		}
+		if len(values.Get("id")) == 0 {
+			w.WriteHeader(http.StatusBadRequest)
+			fmt.Fprint(w, "Wrong input")
+			return
+		}
+
+		id, err := strconv.Atoi(string(values.Get("id")))
+		datastoreMutex.Lock()
+		bIsInError := err != nil || id > len(datastore) // Reading the length of a slice msut be done in a synchronized manner. That's why the mutex is used.
+		datastoreMutex.Unlock()
+
+		if bIsInError {
+			w.WriteHeader(http.StatusBadRequest)
+			fmt.Fprint(w, "Wrong input")
+			return
+		}
+
+		datastoreMutex.Lock()
+		value := datastore[id]
+		datastoreMutex.Unlock()
+
+		response, err := json.Marshal(value)
+
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			w.Write(err)
+			return
+		}
+
+		fmt.Fprint(w, response)
+	} else {
+		w.WriteHeader(http.StatusBadRequest)
+		fmt.Fprint(w, "Error: Only GET accepted")
+	}
+}
+```
+
+We check if the ***GET*** method has been used. Later we parse the *id* argument and check if it's proper. We then get the *id* as an **int** using the *strconv.Atoi* function. Next we make sure it is not out of bounds for our *datastore*, which we have to do using *mutexes* because we're accessing a slice which could be accessed from another thread. If everything is ok, then, again using *mutexes*, we get the task using the *id*.
+
+After that we use the *JSON* library to marshal our struct into a *JSON object* and if that finishes without problems we send the *JSON object* to the client.

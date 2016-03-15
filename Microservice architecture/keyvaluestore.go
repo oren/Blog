@@ -23,10 +23,12 @@ func get(w http.ResponseWriter, r *http.Request) {
 	if(r.Method == http.MethodGet) {
 		values, err := url.ParseQuery(r.URL.RawQuery)
 		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
 			fmt.Fprint(w, "Error:", err)
 			return
 		}
 		if len(values.Get("key")) == 0 {
+			w.WriteHeader(http.StatusBadRequest)
 			fmt.Fprint(w, "Error:","Wrong input key.")
 			return
 		}
@@ -37,6 +39,7 @@ func get(w http.ResponseWriter, r *http.Request) {
 
 		fmt.Fprint(w, value)
 	} else {
+		w.WriteHeader(http.StatusBadRequest)
 		fmt.Fprint(w, "Error: Only GET accepted.")
 	}
 }
@@ -45,14 +48,17 @@ func set(w http.ResponseWriter, r *http.Request) {
 	if(r.Method == http.MethodPost) {
 		values, err := url.ParseQuery(r.URL.RawQuery)
 		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
 			fmt.Fprint(w, "Error:", err)
 			return
 		}
 		if len(values.Get("key")) == 0 {
+			w.WriteHeader(http.StatusBadRequest)
 			fmt.Fprint(w, "Error:", "Wrong input key.")
 			return
 		}
 		if len(values.Get("value")) == 0 {
+			w.WriteHeader(http.StatusBadRequest)
 			fmt.Fprint(w, "Error:", "Wrong input value.")
 			return
 		}
@@ -63,6 +69,7 @@ func set(w http.ResponseWriter, r *http.Request) {
 
 		fmt.Fprint(w, "success")
 	} else {
+		w.WriteHeader(http.StatusBadRequest)
 		fmt.Fprint(w, "Error: Only POST accepted.")
 	}
 }
@@ -75,6 +82,7 @@ func list(w http.ResponseWriter, r *http.Request) {
 		}
 		kVStoreMutex.Unlock()
 	} else {
+		w.WriteHeader(http.StatusBadRequest)
 		fmt.Fprint(w, "Error: Only GET accepted.")
 	}
 }
