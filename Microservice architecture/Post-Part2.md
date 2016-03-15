@@ -6,6 +6,8 @@ In this part we will implement part of the microservices needed for our web app.
 * key-value store
 * Database
 
+This will be a pretty code heavy tutorial so concentrate and have fun!
+
 ## The key-value store
 
 ### Design
@@ -255,7 +257,6 @@ func setById(w http.ResponseWriter, r *http.Request) {
 }
 
 func list(w http.ResponseWriter, r *http.Request) {
-
 }
 ```
 
@@ -557,8 +558,51 @@ func getNewTask(w http.ResponseWriter, r *http.Request) {
 
 First we try to find the oldest task that hasn't started yet. By the way we update the oldestNotFinishedTask variable. If a task is finished and is pointed on by the variable, the variable get's incremented. If we find something that's not started, then we break out of the loop and send it back to the user setting it to *in progress*. However, on the way we start a function on another thread that will change the state of the task back to *not started* if it's still in progress after 120 seconds.
 
-Now the last thing. A database is useless... when you don't know where it is! That's why we'll now implement the mechanism that the database will use to register itself in the key-value store:
+Now the last thing. A database is useless... when you don't know where it is! That's why we'll now implement the mechanism that the database will use to register itself in the *key-value store*:
 
 ```go
+func main() {
 
+	if !registerInKVStore() {
+		return
+	}
+
+	datastore = make(map[int]Task)
 ```
+
+and later we define the function:
+
+```go
+func registerInKVStore() bool {
+	if len(os.Args) < 3 {
+		fmt.Println("Error: Too few arguments.")
+		return false
+	}
+	databaseAddress := os.Args[1] // The address of itself
+	keyValueStoreAddress := os.Args[2]
+
+	response, err := http.Post(keyValueStoreAddress + "/set?key=databaseAddress&value=" + databaseAddress, "", nil)
+	if err != nil {
+		fmt.Println(err)
+		return false
+	}
+	data, err := ioutil.ReadAll(response.Body)
+	if err != nil {
+		fmt.Println(err)
+		return false
+	}
+	if response.StatusCode != http.StatusOK {
+		fmt.Println("Error: Failure when contacting key-value store: ", string(data))
+		return false
+	}
+	return true
+}
+```
+
+We check if there are at least 3 arguments. (The first being the executable) We read the current *database address* from the second argument and the *key-value store address* from the third argument. We use them to make a POST request where we add a ***databaseAddress*** key to the *k/v store* and set its value to the current *database address*. If the status code of the response isn't ***OK*** then we know we messed up and we print the error we got. After that we quit the program.
+
+## Conclusion
+
+We now have finished our *k/v store* and our *database*. You can even test them now. (I used [this one][1].) Remember that the code is subject to change if it will be necessary  but I don't think so. I hope you enjoyed the tutorial! I encourage you to comment, and if you have an opposing view to mine please make sure to express it in a comment too!
+
+[1]:https://chrome.google.com/webstore/detail/advanced-rest-client/hgmloofddffdnphfgcellkdfbfbjeloo
