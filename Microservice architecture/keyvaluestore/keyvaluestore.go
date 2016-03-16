@@ -8,11 +8,11 @@ import (
 )
 
 var keyValueStore map[string]string
-var kVStoreMutex sync.Mutex
+var kVStoreMutex sync.RWMutex
 
 func main() {
 	keyValueStore = make(map[string]string)
-	kVStoreMutex = sync.Mutex{}
+	kVStoreMutex = sync.RWMutex{}
 	http.HandleFunc("/get", get)
 	http.HandleFunc("/set", set)
 	http.HandleFunc("/remove", remove)
@@ -34,9 +34,9 @@ func get(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		kVStoreMutex.Lock()
+		kVStoreMutex.RLock()
 		value := keyValueStore[string(values.Get("key"))]
-		kVStoreMutex.Unlock()
+		kVStoreMutex.RUnlock()
 
 		fmt.Fprint(w, value)
 	} else {
@@ -102,11 +102,11 @@ func remove(w http.ResponseWriter, r *http.Request) {
 
 func list(w http.ResponseWriter, r *http.Request) {
 	if(r.Method == http.MethodGet) {
-		kVStoreMutex.Lock()
+		kVStoreMutex.RLock()
 		for key, value := range keyValueStore {
 			fmt.Fprintln(w, key, ":", value)
 		}
-		kVStoreMutex.Unlock()
+		kVStoreMutex.RUnlock()
 	} else {
 		w.WriteHeader(http.StatusBadRequest)
 		fmt.Fprint(w, "Error: Only GET accepted.")

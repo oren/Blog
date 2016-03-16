@@ -18,9 +18,9 @@ type Task struct {
 }
 
 var datastore map[int]Task
-var datastoreMutex sync.Mutex
+var datastoreMutex sync.RWMutex
 var oldestNotFinishedTask int // remember to account for potential int overflow in production. Use something bigger.
-var oNFTMutex sync.Mutex
+var oNFTMutex sync.RWMutex
 
 func main() {
 
@@ -29,9 +29,9 @@ func main() {
 	}
 
 	datastore = make(map[int]Task)
-	datastoreMutex = sync.Mutex{}
+	datastoreMutex = sync.RWMutex{}
 	oldestNotFinishedTask = 0
-	oNFTMutex = sync.Mutex{}
+	oNFTMutex = sync.RWMutex{}
 
 	http.HandleFunc("/getById", getById)
 	http.HandleFunc("/newTask", newTask)
@@ -62,9 +62,9 @@ func getById(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		datastoreMutex.Lock()
+		datastoreMutex.RLock()
 		bIsInError := err != nil || id >= len(datastore) // Reading the length of a slice must be done in a synchronized manner. That's why the mutex is used.
-		datastoreMutex.Unlock()
+		datastoreMutex.RUnlock()
 
 		if bIsInError {
 			w.WriteHeader(http.StatusBadRequest)
@@ -72,9 +72,9 @@ func getById(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		datastoreMutex.Lock()
+		datastoreMutex.RLock()
 		value := datastore[id]
-		datastoreMutex.Unlock()
+		datastoreMutex.RUnlock()
 
 		response, err := json.Marshal(value)
 
@@ -113,11 +113,11 @@ func getNewTask(w http.ResponseWriter, r *http.Request) {
 
 		bErrored := false
 
-		datastoreMutex.Lock()
+		datastoreMutex.RLock()
 		if len(datastore) == 0 {
 			bErrored = true
 		}
-		datastoreMutex.Unlock()
+		datastoreMutex.RUnlock()
 
 		if bErrored {
 			w.WriteHeader(http.StatusBadRequest)
@@ -262,11 +262,11 @@ func setById(w http.ResponseWriter, r *http.Request) {
 
 func list(w http.ResponseWriter, r *http.Request) {
 	if r.Method == http.MethodGet {
-		datastoreMutex.Lock()
+		datastoreMutex.RLock()
 		for key, value := range datastore {
 			fmt.Fprintln(w, key, ": ", "id:", value.Id, " state:", value.State)
 		}
-		datastoreMutex.Unlock()
+		datastoreMutex.RUnlock()
 	} else {
 		w.WriteHeader(http.StatusBadRequest)
 		fmt.Fprint(w, "Error: Only GET accepted")

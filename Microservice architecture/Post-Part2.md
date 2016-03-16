@@ -27,11 +27,11 @@ import (
 )
 
 var keyValueStore map[string]string
-var kVStoreMutex sync.Mutex
+var kVStoreMutex sync.RWMutex
 
 func main() {
 	keyValueStore = make(map[string]string)
-	kVStoreMutex = sync.Mutex{}
+	kVStoreMutex = sync.RWMutex{}
 	http.HandleFunc("/get", get)
 	http.HandleFunc("/set", set)
 	http.HandleFunc("/remove", remove)
@@ -90,9 +90,9 @@ if len(values.Get("key")) == 0 {
 	return
 }
 
-kVStoreMutex.Lock()
+kVStoreMutex.RLock()
 value := keyValueStore[string(values.Get("key"))]
-kVStoreMutex.Unlock()
+kVStoreMutex.RUnlock()
 
 fmt.Fprint(w, value)
 ```
@@ -140,11 +140,11 @@ Now we can add the implementation of the list function which is also pretty simp
 ```go
 func list(w http.ResponseWriter, r *http.Request) {
 	if(r.Method == http.MethodGet) {
-		kVStoreMutex.Lock()
+		kVStoreMutex.RLock()
 		for key, value := range keyValueStore {
 			fmt.Fprintln(w, key, ":", value)
 		}
-		kVStoreMutex.Unlock()
+		kVStoreMutex.RUnlock()
 	} else {
 		w.WriteHeader(http.StatusBadRequest)
 		fmt.Fprint(w, "Error: Only GET accepted.")
@@ -193,7 +193,6 @@ After thinking through the design, I decided that it would be better if the data
 
 How it will work:
 * It will save new tasks assigning consecutive *Id*'s.
-* It will remember the oldest not finished task.
 * It will allow to get a new task to do.
 * It will allow to get a task by *Id*.
 * It will allow to set a task by *Id*.
@@ -208,7 +207,7 @@ How it will work:
 
 ### Implementation
 
-First, we should create the API and later we will add the implementations of the functionality as before with the key-value store. We will also need a global map being our data store, a variable pointing to the oldest not finished task, and mutexes for accessing the datastore and pointer.
+First, we should create the API and later we will add the implementations of the functionality as before with the key-value store. We will also need a global map being our data store, a variable pointing to the oldest not started task, and mutexes for accessing the datastore and pointer.
 
 ```go
 package main
@@ -223,16 +222,16 @@ type Task struct {
 }
 
 var datastore []Task
-var datastoreMutex sync.Mutex
+var datastoreMutex sync.RWMutex
 var oldestNotFinishedTask int // remember to account for potential int overflow in production. Use something bigger.
-var oNFTMutex sync.Mutex
+var oNFTMutex sync.RWMutex
 
 func main() {
 
 	datastore = make([]Task, 0)
-	datastoreMutex = sync.Mutex{}
+	datastoreMutex = sync.RWMutex{}
 	oldestNotFinishedTask = 0
-	oNFTMutex = sync.Mutex{}
+	oNFTMutex = sync.RWMutex{}
 
 	http.HandleFunc("/getById", getById)
 	http.HandleFunc("/newTask", newTask)
@@ -264,20 +263,6 @@ func list(w http.ResponseWriter, r *http.Request) {
 
 We also already declared the ***Task*** type which we will use for storage.
 
-//TODO
-
-//Write the service discovery code
-
-//to register in the key-value store
-
-//self ip through argument
-
-//
-
-//
-
-//
-
 So far so good. Now let's implement all those functions!
 
 First, let's implement the getById function.
@@ -303,9 +288,9 @@ func getById(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		datastoreMutex.Lock()
+		datastoreMutex.RLock()
 		bIsInError := err != nil || id >= len(datastore) // Reading the length of a slice must be done in a synchronized manner. That's why the mutex is used.
-		datastoreMutex.Unlock()
+		datastoreMutex.RUnlock()
 
 		if bIsInError {
 			w.WriteHeader(http.StatusBadRequest)
@@ -313,9 +298,9 @@ func getById(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		datastoreMutex.Lock()
+		datastoreMutex.RLock()
 		value := datastore[id]
-		datastoreMutex.Unlock()
+		datastoreMutex.RUnlock()
 
 		response, err := json.Marshal(value)
 
@@ -378,11 +363,11 @@ It's basically the same as with the key-value store:
 ```go
 func list(w http.ResponseWriter, r *http.Request) {
 	if r.Method == http.MethodGet {
-		datastoreMutex.Lock()
+		datastoreMutex.RLock()
 		for key, value := range datastore {
 			fmt.Fprintln(w, key, ": ", "id:", value.Id, " state:", value.State)
 		}
-		datastoreMutex.Unlock()
+		datastoreMutex.RUnlock()
 	} else {
 		w.WriteHeader(http.StatusBadRequest)
 		fmt.Fprint(w, "Error: Only GET accepted")
@@ -495,11 +480,11 @@ func getNewTask(w http.ResponseWriter, r *http.Request) {
 
 		bErrored := false
 
-		datastoreMutex.Lock()
+		datastoreMutex.RLock()
 		if len(datastore) == 0 {
 			bErrored = true
 		}
-		datastoreMutex.Unlock()
+		datastoreMutex.RUnlock()
 
 		if bErrored {
 			w.WriteHeader(http.StatusBadRequest)
@@ -605,6 +590,8 @@ We check if there are at least 3 arguments. (The first being the executable) We 
 
 ## Conclusion
 
-We now have finished our *k/v store* and our *database*. You can even test them now. (I used [this one][1].) Remember that the code is subject to change if it will be necessary	but I don't think so. I hope you enjoyed the tutorial! I encourage you to comment, and if you have an opposing view to mine please make sure to express it in a comment too!
+We now have finished our *k/v store* and our *database*. You can even test them now using a REST client. (I used [this one][1].) Remember that the code is subject to change if it will be necessary	but I don't think so. I hope you enjoyed the tutorial! I encourage you to comment, and if you have an opposing view to mine please make sure to express it in a comment too!
+
+***UPDATE***: I changed the sync.Mutex to sync.RWMutex, and in the places where we only read data I changed mutex.Lock/Unlock to mutex.RLock/RUnlock.
 
 [1]:https://chrome.google.com/webstore/detail/advanced-rest-client/hgmloofddffdnphfgcellkdfbfbjeloo
