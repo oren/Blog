@@ -334,7 +334,7 @@ if err != nil {
 fmt.Fprint(w, string(id))
 ```
 
-That's it. The new task will be created, the storage will get a file into the working directory with the name of the file being the *id*, and the client gets back the *id*.
+That's it. The new task will be created, the storage will get a file into the working directory with the name of the file being the *id*, and the client gets back the *id*. The important thing here is that we need the raw image in the request. The user form has to be parsed in the frontend service.
 
 Now we can create the function which just checks if a *Task* is ready:
 
@@ -448,8 +448,69 @@ That's it! The client facing interface is finished!
 
 Now we have to implement the functions to serve the workers.
 
+Both functions will basically be just direct routes to the database and back, so now let's write 'em too:
 
+```go
+func getNewTask(w http.ResponseWriter, r *http.Request) {
+	if r.Method == http.MethodPost {
+		response, err := http.Post("http://" + databaseLocation + "/getNewTask", "text/plain", nil)
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			fmt.Fprint(w, "Error:", err)
+			return
+		}
 
+		_, err = io.Copy(w, response.Body)
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			fmt.Fprint(w, "Error:", err)
+			return
+		}
+	} else {
+		w.WriteHeader(http.StatusBadRequest)
+		fmt.Fprint(w, "Error: Only POST accepted")
+	}
+}
 
+func registerTaskFinished(w http.ResponseWriter, r *http.Request) {
+	if r.Method == http.MethodPost {
+		values, err := url.ParseQuery(r.URL.RawQuery)
+		if err != nil {
+			fmt.Fprint(w, err)
+			return
+		}
+		if len(values.Get("id")) == 0 {
+			w.WriteHeader(http.StatusBadRequest)
+			fmt.Fprint(w, "Wrong input")
+			return
+		}
+
+		response, err := http.Post("http://" + databaseLocation + "/finishTask?id=" + values.Get("id"), "test/plain", nil)
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			fmt.Fprint(w, "Error:", err)
+			return
+		}
+
+		_, err = io.Copy(w, response.Body)
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			fmt.Fprint(w, "Error:", err)
+			return
+		}
+	} else {
+		w.WriteHeader(http.StatusBadRequest)
+		fmt.Fprint(w, "Error: Only POST accepted")
+	}
+}
+```
+
+There's not much to explain. They are both just passing further the request and responding with what they get.
+
+You could think the workers should communicate directly with the database to get new *Tasks*. And with the current implementation it would work perfectly. However, if we wanted to add some functionality the *master* wanted to do for each of those requests it would be hard to implement. So this way is very extensible, and that's nearly always what we want.
+
+## Conclusion
+
+Now we have finished the *Master* and the *Storage system*. We now have the dependencies to create the workers and frontend which we will implement in the next part. As always I encourage you to comment about your opinion. Have fun extending the system to do what you want to achieve!
 
 [1]:https://jacobmartins.com/2016/03/16/web-app-using-microservices-in-go-part-2-kv-store-and-database/
