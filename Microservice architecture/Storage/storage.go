@@ -7,6 +7,7 @@ import (
 	"os"
 	"net/url"
 	"io"
+	"strconv"
 )
 
 func main() {
@@ -34,6 +35,12 @@ func receiveImage(w http.ResponseWriter, r *http.Request) {
 		if values.Get("state") != "working" && values.Get("state") != "finished" {
 			w.WriteHeader(http.StatusBadRequest)
 			fmt.Fprint(w, "Error:","Wrong input state.")
+			return
+		}
+		_, err = strconv.Atoi(values.Get("id"))
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			fmt.Fprint(w, "Error:","Wrong input id.")
 			return
 		}
 
@@ -75,6 +82,12 @@ func serveImage(w http.ResponseWriter, r *http.Request) {
 		if values.Get("state") != "working" && values.Get("state") != "finished" {
 			w.WriteHeader(http.StatusBadRequest)
 			fmt.Fprint(w, "Error:","Wrong input state.")
+			return
+		}
+		_, err = strconv.Atoi(values.Get("id"))
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			fmt.Fprint(w, "Error:","Wrong input id.")
 			return
 		}
 

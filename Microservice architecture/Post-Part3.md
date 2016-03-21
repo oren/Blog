@@ -106,6 +106,13 @@ if values.Get("state") != "working" && values.Get("state") != "finished" {
 			return
 		}
 
+		_, err = strconv.Atoi(values.Get("id"))
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			fmt.Fprint(w, "Error:","Wrong input id.")
+			return
+		}
+
 		file, err := os.Create("/tmp/" + values.Get("state") + "/" + values.Get("id") + ".png")
 		defer file.Close()
 		if err != nil {
@@ -124,7 +131,7 @@ if values.Get("state") != "working" && values.Get("state") != "finished" {
 		fmt.Fprint(w, "success")
 ```
 
-We create a file in the tmp/*state* directory with the right *id*.
+We create a file in the tmp/*state* directory with the right *id*.  Another thing we do is check if the *id* really is a valid int. We parse it to an int, to see if it succeeds and if it does then we use it, as a string.
 
 we use the *io.Copy* function to put all the data from the *request* to the file. That means that the *body* of our request should be a raw image.
 
@@ -147,6 +154,13 @@ func serveImage(w http.ResponseWriter, r *http.Request) {
 		if values.Get("state") != "working" && values.Get("state") != "finished" {
 			w.WriteHeader(http.StatusBadRequest)
 			fmt.Fprint(w, "Error:","Wrong input state.")
+			return
+		}
+
+		_, err = strconv.Atoi(values.Get("id"))
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			fmt.Fprint(w, "Error:","Wrong input id.")
 			return
 		}
 
