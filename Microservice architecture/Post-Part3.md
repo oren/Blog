@@ -189,6 +189,14 @@ import (
 	"io/ioutil"
 )
 
+type Task struct {
+	Id int `json:"id"`
+	State int `json:"state"`
+}
+
+var databaseLocation string
+var storageLocation string
+
 func main() {
 	if !registerInKVStore() {
 		return
@@ -199,6 +207,7 @@ func main() {
 	http.HandleFunc("/isReady", isReady)
 	http.HandleFunc("/getNewTask", getNewTask)
 	http.HandleFunc("/registerTaskFinished", registerTaskFinished)
+	http.ListenAndServe(":3003", nil)
 }
 
 func newImage(w http.ResponseWriter, r *http.Request) {
@@ -242,7 +251,205 @@ func registerInKVStore() bool {
 }
 ```
 
-It's the structure of the **API** and the me
+It's the structure of the **API** and the mechanics to register in the *k/v store*.
+
+We also need to get the storage and database locations in the main function:
+
+```go
+if !registerInKVStore() {
+		return
+	}
+	keyValueStoreAddress = os.Args[2]
+
+	response, err := http.Get("http://" + keyValueStoreAddress + "/get?key=databaseAddress")
+	if response.StatusCode != http.StatusOK {
+		fmt.Println("Error: can't get database address.")
+		fmt.Println(response.Body)
+		return
+	}
+	data, err := ioutil.ReadAll(response.Body)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	databaseLocation = string(data)
+
+	response, err = http.Get("http://" + keyValueStoreAddress + "/get?key=storageAddress")
+	if response.StatusCode != http.StatusOK {
+		fmt.Println("Error: can't get storage address.")
+		fmt.Println(response.Body)
+		return
+	}
+	data, err = ioutil.ReadAll(response.Body)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	storageLocation = string(data)
+```
+
+Now we can start implementing all the functionality!
+
+Let's start with the *newImage* function as it contains a good bit of code and mechanics which will be again used in the other funtions.
+Here's the beginning:
+
+```go
+func newImage(w http.ResponseWriter, r *http.Request) {
+	if r.Method == http.MethodPost {
+		response, err := http.Post("http://" + databaseLocation + "/newTask", "text/plain", nil)
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			fmt.Fprint(w, "Error:", err)
+			return
+		}
+		id, err := ioutil.ReadAll(response.Body)
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+	} else {
+		w.WriteHeader(http.StatusBadRequest)
+		fmt.Fprint(w, "Error: Only POST accepted")
+	}
+}
+```
+
+As usual we check if the method is right. Next we register a new *Task* in the database and get and *Id*.
+
+We now use this to send the image to the storage:
+
+```go
+id, err := ioutil.ReadAll(response.Body)
+if err != nil {
+	fmt.Println(err)
+	return
+}
+
+_, err = http.Post("http://" + storageLocation + "/sendImage?id=" + string(id) + "&state=working", "image", r.Body)
+if err != nil {
+	w.WriteHeader(http.StatusBadRequest)
+	fmt.Fprint(w, "Error:", err)
+	return
+}
+fmt.Fprint(w, string(id))
+```
+
+That's it. The new task will be created, the storage will get a file into the working directory with the name of the file being the *id*, and the client gets back the *id*.
+
+Now we can create the function which just checks if a *Task* is ready:
+
+```go
+func isReady(w http.ResponseWriter, r *http.Request) {
+	if r.Method == http.MethodGet {
+		values, err := url.ParseQuery(r.URL.RawQuery)
+		if err != nil {
+			fmt.Fprint(w, err)
+			return
+		}
+		if len(values.Get("id")) == 0 {
+			w.WriteHeader(http.StatusBadRequest)
+			fmt.Fprint(w, "Wrong input")
+			return
+		}
+	} else {
+		w.WriteHeader(http.StatusBadRequest)
+		fmt.Fprint(w, "Error: Only GET accepted")
+	}
+}
+```
+
+We first have to verify all the parameters and the request method. Next we can ask the database for the *Task* requested:
+
+```go
+if len(values.Get("id")) == 0 {
+	w.WriteHeader(http.StatusBadRequest)
+	fmt.Fprint(w, "Wrong input")
+	return
+}
+
+response, err := http.Get("http://" + databaseLocation + "/getById?id=" + values.Get("id"))
+if err != nil {
+	w.WriteHeader(http.StatusBadRequest)
+	fmt.Fprint(w, "Error:", err)
+	return
+}
+data, err := ioutil.ReadAll(response.Body)
+if err != nil {
+	fmt.Println(err)
+	return
+}
+```
+
+We also read the response immediately. Now we can parse the *Task* and respond to the client:
+
+```go
+if err != nil {
+	fmt.Println(err)
+	return
+}
+
+myTask := Task{}
+json.Unmarshal(data, &myTask)
+
+if(myTask.State == 2) {
+	fmt.Fprint(w, "1")
+} else {
+	fmt.Fprint(w, "0")
+}
+```
+
+So now we can implement the last client facing interface, the *getImage* function:
+
+```go
+if r.Method == http.MethodGet {
+		values, err := url.ParseQuery(r.URL.RawQuery)
+		if err != nil {
+			fmt.Fprint(w, err)
+			return
+		}
+		if len(values.Get("id")) == 0 {
+			w.WriteHeader(http.StatusBadRequest)
+			fmt.Fprint(w, "Wrong input")
+			return
+		}
+} else {
+	w.WriteHeader(http.StatusBadRequest)
+	fmt.Fprint(w, "Error: Only GET accepted")
+}
+```
+
+Here we verified the request and now we need to get the image from the storage system, and just copy the response to our client:
+
+```go
+if len(values.Get("id")) == 0 {
+	w.WriteHeader(http.StatusBadRequest)
+	fmt.Fprint(w, "Wrong input")
+	return
+}
+
+response, err := http.Get("http://" + storageLocation + "/getImage?id=" + values.Get("id") + "&state=finished")
+if err != nil {
+	w.WriteHeader(http.StatusBadRequest)
+	fmt.Fprint(w, "Error:", err)
+	return
+}
+
+_, err = io.Copy(w, response.Body)
+if err != nil {
+	w.WriteHeader(http.StatusBadRequest)
+	fmt.Fprint(w, "Error:", err)
+	return
+}
+```
+
+That's it! The client facing interface is finished!
+
+### Implementing the worker facing interface
+
+Now we have to implement the functions to serve the workers.
+
+
+
 
 
 [1]:https://jacobmartins.com/2016/03/16/web-app-using-microservices-in-go-part-2-kv-store-and-database/

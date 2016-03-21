@@ -281,7 +281,7 @@ func registerInKVStore() bool {
 	databaseAddress := os.Args[1] // The address of itself
 	keyValueStoreAddress := os.Args[2]
 
-	response, err := http.Post(keyValueStoreAddress + "/set?key=databaseAddress&value=" + databaseAddress, "", nil)
+	response, err := http.Post("http://" + keyValueStoreAddress + "/set?key=databaseAddress&value=" + databaseAddress, "", nil)
 	if err != nil {
 		fmt.Println(err)
 		return false
