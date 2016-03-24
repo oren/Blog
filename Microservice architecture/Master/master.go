@@ -68,6 +68,7 @@ func newImage(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		id, err := ioutil.ReadAll(response.Body)
+		response.Body.Close()
 		if err != nil {
 			fmt.Println(err)
 			return
