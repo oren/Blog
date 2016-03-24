@@ -73,6 +73,7 @@ func newImage(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		_, err = http.Post("http://" + storageLocation + "/sendImage?id=" + string(id) + "&state=working", "image", r.Body)
+		r.Body.Close()
 		if err != nil {
 			w.WriteHeader(http.StatusBadRequest)
 			fmt.Fprint(w, "Error:", err)
