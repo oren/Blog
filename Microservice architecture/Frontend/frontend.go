@@ -51,7 +51,12 @@ func handleIndex(w http.ResponseWriter, r *http.Request) {
 
 func handleTask(w http.ResponseWriter, r *http.Request) {
 	if r.Method == http.MethodPost {
-		r.ParseMultipartForm(10000000)
+		err := r.ParseMultipartForm(10000000)
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			fmt.Fprint(w, "Wrong input")
+			return
+		}
 		file, _, err := r.FormFile("uploadfile")
 		if err != nil {
 			w.WriteHeader(http.StatusBadRequest)
@@ -78,7 +83,6 @@ func handleTask(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 		fmt.Fprint(w, "Error: Only POST accepted")
 	}
-
 }
 
 func handleCheckForReadiness(w http.ResponseWriter, r *http.Request) {
