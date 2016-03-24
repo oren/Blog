@@ -8,15 +8,12 @@ import (
 	"net/url"
 	"encoding/json"
 	"io"
-	"sync"
 )
 
 type Task struct {
 	Id int `json:"id"`
 	State int `json:"state"`
 }
-
-var syncmutex sync.Mutex
 
 var databaseLocation string
 var storageLocation string
@@ -27,8 +24,6 @@ func main() {
 		return
 	}
 	keyValueStoreAddress = os.Args[2]
-
-	syncmutex = sync.Mutex{}
 
 	response, err := http.Get("http://" + keyValueStoreAddress + "/get?key=databaseAddress")
 	if response.StatusCode != http.StatusOK {
@@ -72,16 +67,12 @@ func newImage(w http.ResponseWriter, r *http.Request) {
 			fmt.Fprint(w, "Error:", err)
 			return
 		}
-		syncmutex.Lock()
 		id, err := ioutil.ReadAll(response.Body)
-		response.Body.Close()
 		if err != nil {
 			fmt.Println(err)
 			return
 		}
 		_, err = http.Post("http://" + storageLocation + "/sendImage?id=" + string(id) + "&state=working", "image", r.Body)
-		r.Body.Close()
-		syncmutex.Unlock()
 		if err != nil {
 			w.WriteHeader(http.StatusBadRequest)
 			fmt.Fprint(w, "Error:", err)
