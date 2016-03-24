@@ -65,6 +65,7 @@ func handleTask(w http.ResponseWriter, r *http.Request) {
 		}
 
 		response, err := http.Post("http://" + masterLocation + "/new", "image", file)
+		file.Close()
 		if err != nil || response.StatusCode != http.StatusOK {
 			w.WriteHeader(http.StatusBadRequest)
 			fmt.Fprint(w, "Error:", err)
@@ -72,6 +73,7 @@ func handleTask(w http.ResponseWriter, r *http.Request) {
 		}
 
 		data, err := ioutil.ReadAll(response.Body)
+		response.Body.Close()
 		if err != nil {
 			w.WriteHeader(http.StatusBadRequest)
 			fmt.Fprint(w, "Error:", err)
