@@ -8,16 +8,12 @@ import (
 	"net/url"
 	"io"
 	"strconv"
-	"sync"
 )
-
-var mainmutex sync.Mutex
 
 func main() {
 	if !registerInKVStore() {
 		return
 	}
-	mainmutex = sync.Mutex{}
 	http.HandleFunc("/sendImage", receiveImage)
 	http.HandleFunc("/getImage", serveImage)
 	http.ListenAndServe(":3002", nil)
@@ -25,7 +21,6 @@ func main() {
 
 func receiveImage(w http.ResponseWriter, r *http.Request) {
 	if r.Method == http.MethodPost {
-		mainmutex.Lock()
 		values, err := url.ParseQuery(r.URL.RawQuery)
 		if err != nil {
 			w.WriteHeader(http.StatusBadRequest)
@@ -65,7 +60,6 @@ func receiveImage(w http.ResponseWriter, r *http.Request) {
 		}
 
 		fmt.Fprint(w, "success")
-		mainmutex.Unlock()
 	} else {
 		w.WriteHeader(http.StatusBadRequest)
 		fmt.Fprint(w, "Error: Only POST accepted")
