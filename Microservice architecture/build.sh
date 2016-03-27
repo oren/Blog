@@ -1,5 +1,7 @@
 #!/bin/bash
 
+mkdir /tmp/{working,finished}
+
 echo Building Config store...
 cd keyvaluestore
 go build -o ../bin/config-store
