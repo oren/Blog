@@ -8,6 +8,7 @@ Code sample for [this](https://jacobmartins.com/2016/03/14/web-app-using-microse
 ```
 ./build
 ```
+This command will create 6 executables in the bin folder: config-store, tasks-store, images-store, master, worker, and frontend.
 
 ## Run
 ```
