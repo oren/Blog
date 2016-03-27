@@ -1,7 +1,10 @@
 # Microservices in Go
 
-Code sample for [this](https://jacobmartins.com/2016/03/14/web-app-using-microservices-in-go-part-1-design) article
+This is an example for a Micro-services architecture. 
+It's an app with a web interface that accepts a png file and modify it's colors. The user upload the file and the backend services process the image and store it in /tmp folder. It's the code for [this](https://jacobmartins.com/2016/03/14/web-app-using-microservices-in-go-part-1-design) article.
 
+Here is a high level diagram of the different services:  
+We use 6 separate executables: Frontend, Master, Task store, Storage, key-value store, and Workers.
 ![pic](https://www.lucidchart.com/publicSegments/view/cb49c63f-9256-47ae-a21a-18afa85cc4fd/image.png)
 
 ## Build
@@ -14,7 +17,10 @@ This command will create 6 executables in the bin folder: config-store, tasks-st
 ```
 ./run
 ```
-open the brower at 127.0.0.1 , choose a file and hit 'upload'
+open the brower at 127.0.0.1 , choose a png file and hit 'upload'
+
+To verify it's working view the 2 png files: /tmp/working/0.png and /tmp/finished/0.png  
+The first one is the original image and the second one is the modified image.
 
 ## Stop
 ```
