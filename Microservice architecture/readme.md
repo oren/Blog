@@ -14,14 +14,13 @@ go build
 ```
 It's running on port 3000
 
-
-### Master
+### Database (storing tasks)
 ```
-cd Master
+cd Database
 go build
-./Master 127.0.0.1:3003 127.0.0.1:3000
+./Database 127.0.0.1:3001 127.0.0.1:3000
 ```
-It's running on port 3003
+It's running on port 3001
 
 ### Storage (for images)
 ```
@@ -31,13 +30,13 @@ go build
 ```
 It's running on port 3002
 
-### Database (storing tasks)
+### Master
 ```
-cd Database
+cd Master
 go build
-./Database 127.0.0.1:3001 127.0.0.1:3000
+./Master 127.0.0.1:3003 127.0.0.1:3000
 ```
-It's running on port 3001
+It's running on port 3003
 
 ### workers
 ```
@@ -54,18 +53,29 @@ sudo ./Frontend 127.0.0.1:3000
 ```
 It's running on port 80
 
-open the brower 127.0.0.1 , choose a file and hit 'upload'
+open the brower at 127.0.0.1 , choose a file and hit 'upload'
 
-## Misc commands
+## Misc
 
 show key-value store
 ```
 curl localhost:3000/list
+
+databaseAddress : 127.0.0.1:3001
+masterAddress : 127.0.0.1:3003
+storageAddress : 127.0.0.1:3002
 ```
 
 show tasks
 ```
 curl localhost:3001/list
+
+0 :  id: 0  state: 0
+1 :  id: 1  state: 1
 ```
 
+States
 
+* 0 – not started
+* 1 – in progress
+* 2 – finished
