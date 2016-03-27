@@ -1,12 +1,12 @@
 package main
 
 import (
-	"net/http"
 	"fmt"
-	"io/ioutil"
-	"os"
-	"net/url"
 	"io"
+	"io/ioutil"
+	"net/http"
+	"net/url"
+	"os"
 )
 
 const indexPage = "<html><head><title>Upload file</title></head><body><form enctype=\"multipart/form-data\" action=\"submitTask\" method=\"post\"> <input type=\"file\" name=\"uploadfile\" /> <input type=\"submit\" value=\"upload\" /> </form> </body> </html>"
@@ -42,7 +42,7 @@ func main() {
 	http.HandleFunc("/submitTask", handleTask)
 	http.HandleFunc("/isReady", handleCheckForReadiness)
 	http.HandleFunc("/getImage", serveImage)
-	http.ListenAndServe(":80", nil)
+	http.ListenAndServe(":3004", nil)
 }
 
 func handleIndex(w http.ResponseWriter, r *http.Request) {
@@ -64,7 +64,7 @@ func handleTask(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		response, err := http.Post("http://" + masterLocation + "/new", "image", file)
+		response, err := http.Post("http://"+masterLocation+"/new", "image", file)
 		file.Close()
 		if err != nil || response.StatusCode != http.StatusOK {
 			w.WriteHeader(http.StatusBadRequest)
@@ -119,7 +119,7 @@ func handleCheckForReadiness(w http.ResponseWriter, r *http.Request) {
 			fmt.Fprint(w, "Your image is not ready yet.")
 		case "1":
 			fmt.Fprint(w, "Your image is ready.")
-		default :
+		default:
 			fmt.Fprint(w, "Internal server error.")
 		}
 	} else {
@@ -159,4 +159,3 @@ func serveImage(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprint(w, "Error: Only GET accepted")
 	}
 }
-

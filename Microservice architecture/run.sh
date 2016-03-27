@@ -14,12 +14,12 @@ echo Run Image store...
 
 echo Run Master...
 ./master 127.0.0.1:3003 127.0.0.1:3000 &
-sleep 2
+sleep 3
 
 echo Run Worker...
 ./worker 127.0.0.1:3000 3 &
 
 echo Frontend...
-sudo ./frontend 127.0.0.1:3000 &
+./frontend 127.0.0.1:3000 &
 
 echo Done.
