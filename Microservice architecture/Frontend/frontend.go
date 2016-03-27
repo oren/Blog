@@ -42,7 +42,7 @@ func main() {
 	http.HandleFunc("/submitTask", handleTask)
 	http.HandleFunc("/isReady", handleCheckForReadiness)
 	http.HandleFunc("/getImage", serveImage)
-	http.ListenAndServe(":3004", nil)
+	http.ListenAndServe(":80", nil)
 }
 
 func handleIndex(w http.ResponseWriter, r *http.Request) {

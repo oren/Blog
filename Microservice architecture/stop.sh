@@ -1,6 +1,6 @@
 #!/bin/bash
 
-pkill frontend
+sudo pkill frontend
 pkill worker
 pkill master
 pkill images-store

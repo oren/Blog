@@ -20,6 +20,6 @@ echo Run Worker...
 ./worker 127.0.0.1:3000 3 &
 
 echo Frontend...
-./frontend 127.0.0.1:3000 &
+sudo ./frontend 127.0.0.1:3000 &
 
 echo Done.
