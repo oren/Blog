@@ -13,6 +13,7 @@ import (
 	"image/color"
 	"bytes"
 	"sync"
+	"errors"
 )
 
 type Task struct {
@@ -76,7 +77,7 @@ func main() {
 		go func() {
 			for {
 				myTask, err := getNewTask(masterLocation)
-				if err != nil {
+				if err != nil || myTask.Id == -1 {
 					fmt.Println(err)
 					fmt.Println("Waiting 2 second timeout...")
 					time.Sleep(time.Second * 2)
@@ -91,7 +92,14 @@ func main() {
 					continue
 				}
 
-				myImage = doWorkOnImage(myImage)
+				myImage, err = doWorkOnImage(myImage)
+				if err != nil {
+					fmt.Println(err)
+					fmt.Println("Waiting 2 second timeout...")
+					time.Sleep(time.Second * 2)
+					registerFinishedTask(masterLocation, myTask)
+					continue
+				}
 
 				err = sendImageToStorage(storageLocation, myTask, myImage)
 				if err != nil {
@@ -145,22 +153,26 @@ func getImageFromStorage(storageAddress string, myTask Task) (image.Image, error
 
 	return myImage, nil
 }
-func doWorkOnImage(myImage image.Image) image.Image {
-	myCanvas := image.NewRGBA(myImage.Bounds())
+func doWorkOnImage(myImage image.Image) (image.Image, error) {
+	if myImage != nil {
+		myCanvas := image.NewRGBA(myImage.Bounds())
 
-	for i := 0; i < myCanvas.Rect.Max.X; i++ {
-		for j := 0; j < myCanvas.Rect.Max.Y; j++ {
-			r, g, b, _ := myImage.At(i, j).RGBA()
-			myColor := new(color.RGBA)
-			myColor.R = uint8(g)
-			myColor.G = uint8(r)
-			myColor.B = uint8(b)
-			myColor.A = uint8(255)
-			myCanvas.Set(i, j, myColor)
+		for i := 0; i < myCanvas.Rect.Max.X; i++ {
+			for j := 0; j < myCanvas.Rect.Max.Y; j++ {
+				r, g, b, _ := myImage.At(i, j).RGBA()
+				myColor := new(color.RGBA)
+				myColor.R = uint8(g)
+				myColor.G = uint8(r)
+				myColor.B = uint8(b)
+				myColor.A = uint8(255)
+				myCanvas.Set(i, j, myColor)
+			}
 		}
-	}
 
-	return myCanvas.SubImage(myImage.Bounds())
+		return myCanvas.SubImage(myImage.Bounds()), nil
+	} else {
+		return myImage, errors.New("Image can't be nil.")
+	}
 }
 func sendImageToStorage(storageAddress string, myTask Task, myImage image.Image) error {
 	data := []byte{}
