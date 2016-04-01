@@ -120,4 +120,16 @@ func handleSubscriberListing(w http.ResponseWriter, r *http.Request) {
 }
 
 func killZombieServices() {
+	t := time.Tick(1 * time.Minute)
+
+	for range t {
+		timeNow := time.Now()
+		serviceStorageMutex.Lock()
+		for address, timeKeepAlive := range registeredServiceStorage {
+			if timeNow.Sub(timeKeepAlive).Minutes() > 2 {
+				delete(registeredServiceStorage, address)
+			}
+		}
+		serviceStorageMutex.Unlock()
+	}
 }

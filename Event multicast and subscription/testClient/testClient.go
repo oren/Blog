@@ -8,7 +8,13 @@ import (
 )
 
 func main() {
-	http.Post("localhost:3000/registerAndKeepAlive?address=" + os.Args[1], "", nil)
+	response, err := http.Post("http://localhost:3000/registerAndKeepAlive?address=" + os.Args[1], "", nil)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	data, err := ioutil.ReadAll(response.Body)
+	fmt.Println(string(data))
 
 	http.HandleFunc("/event", printEvent)
 	http.ListenAndServe(os.Args[1], nil)
