@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/satori/go.uuid"
 	"sync"
+	"crypto/subtle"
 )
 
 var sessionStore map[string]Client
@@ -117,7 +118,7 @@ func handleLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if r.FormValue("password") == "password123" {
+	if subtle.ConstantTimeCompare([]byte(r.FormValue("password")), []byte("password123")) == 1 {
 		client.loggedIn = true
 		fmt.Fprintln(w, "Thank you for logging in.")
 		storageMutex.Lock()

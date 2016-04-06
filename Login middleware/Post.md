@@ -2,13 +2,13 @@
 
 ## Introduction
 
-In this part we will be creating a simple ***middleware*** you can easily apply to your handlers to get *authentication/authorization*. Middleware like this is an awesome way to add additional functionality to your Go server. Here we will only do *authorization* as we will only ask for a password, not a login. Although if you want, then you can easily extend this system to any authentication/authorization you'd like.
+In this part we'll be creating a simple ***middleware*** you can easily apply to your handlers to get *authentication/authorization*. Middleware like this is an awesome way to add additional functionality to your Go server. Here we will only do *authorization* as we will only ask for a password, not a login. Although if you want, then you can easily extend this system to any authentication/authorization you'd like.
 
 ## Implementation
 
 We will mainly use the *stdlib*, and will use *cookies* to remember who's already logged in. To generate the cookie values we will use the go.uuid library. So remember to
 ```
-  go get github.com/satori/go.uuid
+	go get github.com/satori/go.uuid
 ```
 
  We will start with a basic structure of our system with an already existing "Hello World!!!" handler:
@@ -28,7 +28,7 @@ const loginPage = "<html><head><title>Login</title></head><body><form action=\"l
 func main() {
 
 	http.Handle("/hello", helloWorldHandler{})
-  http.HandleFunc("/login", handleLogin)
+	http.HandleFunc("/login", handleLogin)
 
 	http.ListenAndServe(":3000", nil)
 }
@@ -72,7 +72,7 @@ const loginPage = "<html><head><title>Login</title></head><body><form action=\"l
 func main() {
 
 	http.Handle("/hello", helloWorldHandler{})
-  http.HandleFunc("/login", handleLogin)
+	http.HandleFunc("/login", handleLogin)
 
 	http.ListenAndServe(":3000", nil)
 }
@@ -107,7 +107,7 @@ func handleLogin(w http.ResponseWriter, r *http.Request) {
 }
 ```
 
-we create a handler which will supply authorization, and if authorized successfully, will let the user through to the underlying handler. We also define the authenticate method, a simple function wrapper over creating a struct, and a function to handle the login.
+we create a handler which will supply authorization, and if authorized successfully, will let the user through to the underlying handler. We also define the *authenticate* method, a simple function wrapper over creating a struct, and a function to handle the login.
 
 That means we can also define the last route, the secured hello world route.
 
@@ -163,11 +163,11 @@ We later check, unless the cookie exists, if it's saved in our map. If it's not,
 var present bool
 var client Client
 if cookie != nil {
-  storageMutex.RLock()
-  client, present = sessionStore[cookie.Value]
-  storageMutex.RUnlock()
+	storageMutex.RLock()
+	client, present = sessionStore[cookie.Value]
+	storageMutex.RUnlock()
 } else {
-  present = false
+	present = false
 }
 ```
 
@@ -175,29 +175,29 @@ Now, if the cookie wasn't present, then we can generate a new one!:
 
 ```go
 if present == false {
-  cookie = &http.Cookie{
-    Name: "session",
-    Value: uuid.NewV4().String(),
-  }
-  client = Client{false}
-  storageMutex.Lock()
-  sessionStore[cookie.Value] = client
-  storageMutex.Unlock()
+	cookie = &http.Cookie{
+		Name: "session",
+		Value: uuid.NewV4().String(),
+	}
+	client = Client{false}
+	storageMutex.Lock()
+	sessionStore[cookie.Value] = client
+	storageMutex.Unlock()
 }
 ```
 
 We can then set the cookie to our response writer, and if the client isn't logged in, send him the login page, however, if he is logged in, then we can send him what he wanted:
 
 ```go
-  http.SetCookie(w, cookie)
-  if client.loggedIn == false {
-    fmt.Fprint(w, loginPage)
-    return
-  }
-  if client.loggedIn == true {
-    h.wrappedHandler.ServeHTTP(w, r)
-    return
-  }
+	http.SetCookie(w, cookie)
+	if client.loggedIn == false {
+		fmt.Fprint(w, loginPage)
+		return
+	}
+	if client.loggedIn == true {
+		h.wrappedHandler.ServeHTTP(w, r)
+		return
+	}
 }
 ```
 
@@ -244,28 +244,30 @@ First we created the part which is accountable for the cookie handling, as in th
 http.SetCookie(w, cookie)
 err = r.ParseForm()
 if err != nil {
-  fmt.Fprint(w, err)
-  return
+	fmt.Fprint(w, err)
+	return
 }
 
-if r.FormValue("password") == "password123" {
-  //login user
+if subtle.ConstantTimeCompare([]byte(r.FormValue("password")), []byte("password123")) == 1 {
+	//login user
 } else {
-  fmt.Fprintln(w, "Wrong password.")
+	fmt.Fprintln(w, "Wrong password.")
 }
 ```
 
 We parse the login form and check if the login conditions are met. Here we only need the password to be correct. If it is we log the client in:
 
 ```go
-if r.FormValue("password") == "password123" {
-  client.loggedIn = true
-  fmt.Fprintln(w, "Thank you for logging in.")
-  storageMutex.Lock()
-  sessionStore[cookie.Value] = client
-  storageMutex.Unlock()
+if subtle.ConstantTimeCompare([]byte(r.FormValue("password")), []byte("password123")) == 1 {
+	client.loggedIn = true
+	fmt.Fprintln(w, "Thank you for logging in.")
+	storageMutex.Lock()
+	sessionStore[cookie.Value] = client
+	storageMutex.Unlock()
 }
 ```
+
+We use *subtle.ConstantTimeCompare* as it protects us from time-based attacks. (Thanks for the tip in the reddit comment.)
 
 That's basically all we need. Now you can secure the routes you want easily.
 
